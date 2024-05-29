@@ -63,4 +63,5 @@ def update_graphs(_):
     return fig1, fig2, fig3
 
 if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 8050))
     app.run_server(debug=True)
