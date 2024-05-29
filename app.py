@@ -1,7 +1,9 @@
 # app.py
 import dash
-import dash_core_components as dcc
-import dash_html_components as html
+#import dash_core_components as dcc
+#import dash_html_components as html
+from dash import html
+from dash import dcc
 from dash.dependencies import Input, Output
 import yfinance as yf
 import pandas as pd
@@ -64,4 +66,4 @@ def update_graphs(_):
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8050))
-    app.run_server(debug=True)
+    app.run_server(debug=True, host='0.0.0.0', port=port)
