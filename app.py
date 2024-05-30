@@ -1,19 +1,83 @@
 import os
 import dash
 from dash import html, dcc
+from fredapi import Fred
 from dash.dependencies import Input, Output, State
 import yfinance as yf
 import pandas as pd
 import requests
 from datetime import datetime, timedelta
 
-fred_api_key = os.environ.get('fred_api_key')
+#fred_api_key = os.environ.get('fred_api_key')
+fred_api_key = "1d2e1188d3dcb4f852962303ca27438c"
 
 end_date = datetime.today()
-start_date = end_date - timedelta(days=5*365)
+start_date = end_date - timedelta(days=5 * 365)
 obs_window = '15y'
 px_width = 650
-px_heigth = 380
+px_height = 380
+
+
+def init_figs(sp500_hist, vix_hist, unemployment_claims, fed_funds_rate, yield_data,
+              start_date, end_date, px_width, px_height):
+    # Initial figure definitions
+    initial_sp500_fig = {
+        'data': [
+            {'x': sp500_hist.index, 'y': sp500_hist['Close'], 'type': 'line', 'name': 'S&P 500'},
+            {'x': sp500_hist.index, 'y': sp500_hist['SMA200'], 'type': 'line', 'name': 'SMA 200'}
+        ],
+        'layout': {
+            'title': 'S&P 500 and 200-Day SMA',
+            'xaxis': {'range': [start_date, end_date]},
+            'yaxis': {'range': [2000, 5500]},
+            'width': px_width, 'height': px_height
+        }
+    }
+
+    initial_vix_fig = {
+        'data': [{'x': vix_hist.index, 'y': vix_hist['Close'], 'type': 'line', 'name': 'VIX'}],
+        'layout': {
+            'title': 'VIX',
+            'xaxis': {'range': [start_date, end_date]},
+            'yaxis': {'range': [0, 80]},
+            'width': px_width, 'height': px_height
+        }
+    }
+
+    initial_unemployment_fig = {
+        'data': [
+            {'x': unemployment_claims.index, 'y': unemployment_claims['value'], 'type': 'line', 'name': 'UEC'},
+            {'x': unemployment_claims.index, 'y': unemployment_claims['SMA'], 'type': 'line', 'name': 'SMA'}
+        ],
+        'layout': {
+            'title': 'US Unemployment Claims and SMA 10 Weeks',
+            'xaxis': {'range': [start_date, end_date]},
+            'yaxis': {'range': [150000, 400000]},
+            'width': px_width, 'height': px_height
+        }
+    }
+
+    initial_fed_funds_rate_fig = {
+        'data': [{'x': fed_funds_rate.index, 'y': fed_funds_rate['value'], 'type': 'line', 'name': 'Fed Funds Rate'}],
+        'layout': {'title': 'Federal Funds Rate',
+                   'xaxis': {'range': [start_date, end_date]},
+                   'yaxis': {'range': [0, 7]},
+                   'width': px_width, 'height': px_height}
+    }
+
+    initial_yield_fig = {
+        'data': [{'x': yield_data.index, 'y': yield_data['diff'], 'type': 'line', 'name': 'Yield Data 3 Mo / 10 Yr'}],
+        'layout': {'title': '3 Mo / 10 Yr Yield Data Curve',
+                   'xaxis': {'range': [start_date, end_date]},
+                   'yaxis': {'range': [-2.2, 2.2]},
+                   'width': px_width, 'height': px_height}
+    }
+    return initial_sp500_fig, initial_vix_fig, initial_unemployment_fig, initial_fed_funds_rate_fig, initial_yield_fig
+
+
+def gen_text(data):
+    return True
+
 
 # Fetch S&P 500 data
 sp500 = yf.Ticker("^GSPC")
@@ -35,67 +99,73 @@ unemployment_claims['SMA'] = unemployment_claims['value'].rolling(window=10).mea
 unemployment_claims['steepness'] = unemployment_claims['SMA'].diff()
 ued_hist = unemployment_claims.copy()
 
-# Initial figure definitions
-initial_sp500_fig = {
-    'data': [
-        {'x': sp500_hist.index, 'y': sp500_hist['Close'], 'type': 'line', 'name': 'S&P 500'},
-        {'x': sp500_hist.index, 'y': sp500_hist['SMA200'], 'type': 'line', 'name': 'SMA 200'}
-    ],
-    'layout': {
-        'title': 'S&P 500 and 200-Day SMA',
-        'xaxis': {'range': [start_date, end_date]},
-        'width': px_width, 'height': px_heigth
-    }
-}
+# Fetch Federal Funds Rate data
+fed_funds_rate_url = f'https://api.stlouisfed.org/fred/series/observations?series_id=DFF&api_key={fred_api_key}&file_type=json'
+response = requests.get(fed_funds_rate_url)
+fed_funds_rate = pd.DataFrame(response.json()['observations'])
+fed_funds_rate['date'] = pd.to_datetime(fed_funds_rate['date'])
+fed_funds_rate.set_index('date', inplace=True)
+fed_funds_rate['value'] = fed_funds_rate['value'].astype(float)
+fed_funds_rate_filtered = fed_funds_rate.loc[pd.Timestamp('2020-01-01'):datetime.today()]
+fed_funds_rate_values = fed_funds_rate_filtered['value'].tolist()
+fed_funds_rate_max = max(fed_funds_rate_values)
 
-initial_vix_fig = {
-    'data': [{'x': vix_hist.index, 'y': vix_hist['Close'], 'type': 'line', 'name': 'VIX'}],
-    'layout': {
-        'title': 'VIX',
-        'xaxis': {'range': [start_date, end_date]},
-        'yaxis': {'range': [0,80]},
-        'width': px_width, 'height': px_heigth
-    }
-}
+# Fetch US Treasury yield data
+fred = Fred(api_key=fred_api_key)
+series_ids = {'3 Mo': 'DGS3MO', '1 Yr': 'DGS1', '10 Yr': 'DGS10'}
+yield_data = pd.DataFrame()
+for maturity, series_id in series_ids.items():
+    yield_data[maturity] = fred.get_series(series_id)
 
-initial_unemployment_fig = {
-    'data': [
-        {'x': unemployment_claims.index, 'y': unemployment_claims['value'], 'type': 'line', 'name': 'UEC'},
-        {'x': unemployment_claims.index, 'y': unemployment_claims['SMA'],   'type': 'line', 'name': 'SMA'}
-    ],
-    'layout': {
-        'title': 'US Unemployment Claims and SMA 10 Weeks',
-        'xaxis': {'range': [start_date, end_date]},
-        'yaxis': {'range': [0,600000]},
-        'width': px_width, 'height': px_heigth
-    }
-}
+# Drop rows with NaN values (incomplete dates)
+yield_data = yield_data[yield_data.index.year >= 1990]
+yield_data = yield_data.dropna()
+#yield_data['diff'] = yield_data['10 Yr'] - yield_data['1 Yr']
+yield_data['diff'] = yield_data['10 Yr'] - yield_data['3 Mo']
+
+initial_sp500_fig, initial_vix_fig, initial_unemployment_fig, initial_fed_funds_rate_fig, initial_yield_fig = init_figs(
+    sp500_hist, vix_hist, unemployment_claims, fed_funds_rate, yield_data, start_date, end_date, px_width, px_height)
+
+
 
 app = dash.Dash(__name__)
 
 sp500_check = sp500_hist['SMA200'].iloc[-1] > sp500_hist['Close'].iloc[-1]
 vix_check = vix_hist['Close'].iloc[-1] > 45
 ue_check_abs = unemployment_claims['value'].iloc[-1] > 350000
-ue_check_rel = unemployment_claims['steepness'].iloc[-1] > 600
+ue_check_rel = unemployment_claims['steepness'].iloc[-1] > 1000
+fed_check_dec = fed_funds_rate_max - fed_funds_rate['value'].iloc[-1] > 0
+yield_check_a = yield_data['diff'].values[-1] < 0
+
+yield_inv_dates = []
+for n, yield_dat in enumerate(yield_data['diff'][1:]):
+    if yield_dat * yield_data['diff'].iloc[n - 1] < 0:
+        yield_inv_dates.append(yield_data.index[n])
+
+days_since_crossing = (end_date - yield_inv_dates[-1]).days
+yield_check_b = days_since_crossing > 368.5 #700+168+196+534+378+175+294+540+189+511 / 10
 
 text_check_sp500 = f"<span style='color:{'green' if not sp500_check else 'red'};'>{sp500_check}</span>"
 text_check_vix = f"<span style='color:{'green' if not vix_check else 'red'};'>{vix_check}</span>"
 text_check_ue_a = f"<span style='color:{'green' if not ue_check_abs else 'red'};'>{ue_check_abs}</span>"
 text_check_ue_r = f"<span style='color:{'green' if not ue_check_rel else 'red'};'>{ue_check_rel}</span>"
+text_check_fed = f"<span style='color:{'green' if not fed_check_dec else 'red'};'>{fed_check_dec}</span>"
+text_check_y_a = f"<span style='color:{'green' if not yield_check_a else 'red'};'>{yield_check_a}</span>"
+text_check_y_b = f"<span style='color:{'green' if not yield_check_b else 'red'};'>{yield_check_b}</span>"
 
 text_content = f"""
     <h2 style="margin: 3px; padding: 3px;">Crash Check</h2>
     <table style="border-collapse: separate; border-spacing: 30px 0px; width: 80%;">
     <tr>
-          <td><h4 style="margin: 2px; padding: 0;">Crash</h4></td>
+        <td><h4 style="margin: 2px; padding: 0;">Crash</h4></td>
         <td style="width: 40%;"><h4 style="margin: 2px; padding: 0;">condition</h4></td>
         <td><h4 style="margin: 2px; padding: 0;">value</h4></td>
-          <td><h4 style="margin: 2px; padding: 0;">check</h4></td>
+        <td><h4 style="margin: 2px; padding: 0;">check</h4></td>
     </tr>
     <tr>
           <td>initiated</td>
           <td style="font-family: monospace; font-size: 11pt;">SP500 &lt; SMA200</td>
-          <td></td>
+          <td>{sp500_check}</td>
           <td><b>{text_check_sp500}</b></td>
     </tr>
     <tr>
@@ -112,11 +182,37 @@ text_content = f"""
     </tr>
     <tr>
           <td>likely</td>
-          <td style="font-family: monospace; font-size: 11pt;">d/dt UE_sma &gt; 500</td>
+          <td style="font-family: monospace; font-size: 11pt;">d/dt UE_sma &gt; 1000</td>
           <td>{unemployment_claims['steepness'].iloc[-1]}</td>
           <td><b>{text_check_ue_r}</b></td>
     </tr>
+    <tr>
+          <td>initiated</td>
+          <td style="font-family: monospace; font-size: 11pt;">dec. FED rates</td>
+          <td>{fed_funds_rate_max}/{fed_funds_rate['value'].iloc[-1]}</td>
+          <td><b>{text_check_fed}</b></td>
+    </tr>
+        <tr>
+          <td>initiated</td>
+          <td style="font-family: monospace; font-size: 11pt;">yield inv., y(today) &lt; 0 </td>
+          <td>{round(yield_data['diff'].values[-1], 2)} &lt; 0 </td>
+          <td><b>{text_check_y_a}</b></td>
+    </tr>
+        <tr>
+          <td>awaiting</td>
+          <td style="font-family: monospace; font-size: 11pt;">days since inversion &gt; av.</td>
+          <td>{days_since_crossing} > 368 </td>
+          <td><b>{text_check_y_b}</b></td>
+    </tr>
     </table>
+    
+    Yield curve inversion occurred on {yield_inv_dates[-1].date()}, {days_since_crossing} d ago. 
+    Average of 368.5 days computed from [Game of Trades](https://www.linkedin.com/posts/game-of-trades_the-yield-curve-has-been-inverted-for-over-activity-7187517889917181954-3Z4k/), 
+    see [here](https://media.licdn.com/dms/image/D4D12AQH4dBh2WkJ2NQ/article-cover_image-shrink_720_1280/0/1716201001189?e=1722470400&v=beta&t=EsDmRHHTCG9ulNUELC-jbIMSEovCnFT_2rkyrHT2pKs). 
+    
+    Notes: When the FED rates decrease again, a crash is likely to occur as the FED is trying to dampen negative 
+    effects of previously high rates. I.e. slowing down the economy has worked, a crash occurred, then they have 
+    to counteract.
     
     ({end_date.date()})
 """
@@ -124,24 +220,34 @@ text_content = f"""
 app.layout = html.Div([
     html.Div([
         dcc.Graph(id='sp500-graph', figure=initial_sp500_fig),
-        dcc.Markdown(text_content, id='text-panel', style={'textAlign': 'left', 'paddingTop': '40px'}, dangerously_allow_html=True)
+        dcc.Markdown(text_content, id='text-panel', style={'textAlign': 'left', 'paddingTop': '40px'},
+                     dangerously_allow_html=True)
     ], style={'display': 'grid', 'grid-template-columns': '50% 50%', 'grid-template-rows': '50% 50%'}),
     html.Div([
         dcc.Graph(id='vix-graph', figure=initial_vix_fig),
-        dcc.Graph(id='unemployment-graph', figure=initial_unemployment_fig)        
+        dcc.Graph(id='unemployment-graph', figure=initial_unemployment_fig)
+    ], style={'display': 'grid', 'grid-template-columns': '50% 50%', 'grid-template-rows': '50% 50%'}),
+    html.Div([
+        dcc.Graph(id='fed-funds-rate-graph', figure=initial_fed_funds_rate_fig),
+        dcc.Graph(id='yield-data-graph', figure=initial_yield_fig)
     ], style={'display': 'grid', 'grid-template-columns': '50% 50%', 'grid-template-rows': '50% 50%'})
 ])
+
 
 @app.callback(
     [Output('sp500-graph', 'figure'),
      Output('vix-graph', 'figure'),
-     Output('unemployment-graph', 'figure')],
+     Output('unemployment-graph', 'figure'),
+     Output('fed-funds-rate-graph', 'figure'),
+     Output('yield-data-graph', 'figure')],
     [Input('sp500-graph', 'relayoutData')],
     [State('sp500-graph', 'figure'),
      State('vix-graph', 'figure'),
-     State('unemployment-graph', 'figure')],
+     State('unemployment-graph', 'figure'),
+     State('fed-funds-rate-graph', 'figure'),
+     State('yield-data-graph', 'figure')],
 )
-def update_graphs(sp500_relayoutData, sp500_fig, vix_fig, unemployment_fig):
+def update_graphs(sp500_relayoutData, sp500_fig, vix_fig, unemployment_fig, fed_funds_rate_fig, yield_fig):
     ctx = dash.callback_context
 
     if not ctx.triggered or 'xaxis.range[0]' not in sp500_relayoutData:
@@ -156,15 +262,23 @@ def update_graphs(sp500_relayoutData, sp500_fig, vix_fig, unemployment_fig):
         vix_fig = initial_vix_fig
     if unemployment_fig is None:
         unemployment_fig = initial_unemployment_fig
+    if fed_funds_rate_fig is None:
+        fed_funds_rate_fig = initial_fed_funds_rate_fig
+    if yield_fig is None:
+        yield_fig = initial_yield_fig
 
     # Update x-axis range
     sp500_fig['layout']['xaxis']['range'] = [range_start, range_end]
     vix_fig['layout']['xaxis']['range'] = [range_start, range_end]
     unemployment_fig['layout']['xaxis']['range'] = [range_start, range_end]
+    fed_funds_rate_fig['layout']['xaxis']['range'] = [range_start, range_end]
+    yield_fig['layout']['xaxis']['range'] = [range_start, range_end]
 
     # Convert datetime objects to timezone-naive
     vix_hist.index = vix_hist.index.tz_localize(None)
     ued_hist.index = ued_hist.index.tz_localize(None)
+    fed_funds_rate.index = fed_funds_rate.index.tz_localize(None)
+    yield_data['diff'].index = yield_data['diff'].index.tz_localize(None)
 
     # Update y-axis range for VIX
     vix_visible_data = vix_hist[(vix_hist.index >= range_start) & (vix_hist.index <= range_end)]
@@ -180,8 +294,25 @@ def update_graphs(sp500_relayoutData, sp500_fig, vix_fig, unemployment_fig):
         ued_max = 1.02 * ued_visible_data['value'].max()
         unemployment_fig['layout']['yaxis']['range'] = [ued_min, ued_max]
 
-    return sp500_fig, vix_fig, unemployment_fig
+    # Update y-axis to autorange for Federal Funds Rate
+    fed_funds_visible_data = fed_funds_rate[(fed_funds_rate.index >= range_start) & (fed_funds_rate.index <= range_end)]
+    if not fed_funds_visible_data.empty:
+        fed_funds_min = 0.98 * fed_funds_visible_data['value'].min()
+        fed_funds_max = 1.02 * fed_funds_visible_data['value'].max()
+        fed_funds_rate_fig['layout']['yaxis']['range'] = [fed_funds_min, fed_funds_max]
+
+    # Update y-axis to auto range for Yield Data
+    yields_visible_data = yield_data['diff'][
+        (yield_data['diff'].index >= range_start) & (yield_data['diff'].index <= range_end)]
+    if not yields_visible_data.empty:
+        yield_funds_min = 0.98 * yields_visible_data.values.min()
+        yield_funds_max = 1.02 * yields_visible_data.values.max()
+        yield_fig['layout']['yaxis']['range'] = [yield_funds_min, yield_funds_max]
+
+    return sp500_fig, vix_fig, unemployment_fig, fed_funds_rate_fig, yield_fig
+
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 8050))
-    app.run_server(debug=True, host='0.0.0.0', port=port)
+    #port = int(os.environ.get('PORT', 8050))
+    #app.run_server(debug=True, host='0.0.0.0', port=port)
+    app.run_server(debug=True)
