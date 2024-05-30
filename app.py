@@ -8,8 +8,7 @@ import pandas as pd
 import requests
 from datetime import datetime, timedelta
 
-#fred_api_key = os.environ.get('fred_api_key')
-fred_api_key = "1d2e1188d3dcb4f852962303ca27438c"
+fred_api_key = os.environ.get('fred_api_key')
 
 end_date = datetime.today()
 start_date = end_date - timedelta(days=5 * 365)
@@ -120,13 +119,11 @@ for maturity, series_id in series_ids.items():
 # Drop rows with NaN values (incomplete dates)
 yield_data = yield_data[yield_data.index.year >= 1990]
 yield_data = yield_data.dropna()
-#yield_data['diff'] = yield_data['10 Yr'] - yield_data['1 Yr']
+# yield_data['diff'] = yield_data['10 Yr'] - yield_data['1 Yr']
 yield_data['diff'] = yield_data['10 Yr'] - yield_data['3 Mo']
 
 initial_sp500_fig, initial_vix_fig, initial_unemployment_fig, initial_fed_funds_rate_fig, initial_yield_fig = init_figs(
     sp500_hist, vix_hist, unemployment_claims, fed_funds_rate, yield_data, start_date, end_date, px_width, px_height)
-
-
 
 app = dash.Dash(__name__)
 
@@ -143,7 +140,7 @@ for n, yield_dat in enumerate(yield_data['diff'][1:]):
         yield_inv_dates.append(yield_data.index[n])
 
 days_since_crossing = (end_date - yield_inv_dates[-1]).days
-yield_check_b = days_since_crossing > 368.5 #700+168+196+534+378+175+294+540+189+511 / 10
+yield_check_b = days_since_crossing > 368.5  # 700+168+196+534+378+175+294+540+189+511 / 10
 
 text_check_sp500 = f"<span style='color:{'green' if not sp500_check else 'red'};'>{sp500_check}</span>"
 text_check_vix = f"<span style='color:{'green' if not vix_check else 'red'};'>{vix_check}</span>"
@@ -205,15 +202,15 @@ text_content = f"""
           <td><b>{text_check_y_b}</b></td>
     </tr>
     </table>
-    
+
     Yield curve inversion occurred on {yield_inv_dates[-1].date()}, {days_since_crossing} d ago. 
     Average of 368.5 days computed from [Game of Trades](https://www.linkedin.com/posts/game-of-trades_the-yield-curve-has-been-inverted-for-over-activity-7187517889917181954-3Z4k/), 
     see [here](https://media.licdn.com/dms/image/D4D12AQH4dBh2WkJ2NQ/article-cover_image-shrink_720_1280/0/1716201001189?e=1722470400&v=beta&t=EsDmRHHTCG9ulNUELC-jbIMSEovCnFT_2rkyrHT2pKs). 
-    
+
     Notes: When the FED rates decrease again, a crash is likely to occur as the FED is trying to dampen negative 
     effects of previously high rates. I.e. slowing down the economy has worked, a crash occurred, then they have 
     to counteract.
-    
+
     ({end_date.date()})
 """
 
@@ -313,6 +310,7 @@ def update_graphs(sp500_relayoutData, sp500_fig, vix_fig, unemployment_fig, fed_
 
 
 if __name__ == '__main__':
-    #port = int(os.environ.get('PORT', 8050))
-    #app.run_server(debug=True, host='0.0.0.0', port=port)
-    app.run_server(debug=True)
+    # app.run_server(debug=True)
+    port = int(os.environ.get('PORT', 8050))
+    app.run_server(debug=True, host='0.0.0.0', port=port)
+
