@@ -54,8 +54,10 @@ def get_data():
 
 def init_figs(sp500_hist, vix_hist, unemployment_claims, fed_funds_rate, yield_data,
               start_date, end_date, px_width, px_height):
+
+    figs = {}
     # Initial figure definitions
-    initial_sp500_fig = {
+    figs['sp500'] = {
         'data': [
             {'x': sp500_hist.index, 'y': sp500_hist['Close'], 'type': 'line', 'name': 'S&P 500'},
             {'x': sp500_hist.index, 'y': sp500_hist['SMA200'], 'type': 'line', 'name': 'SMA 200', 'line': {'width': 1.5}}
@@ -69,7 +71,7 @@ def init_figs(sp500_hist, vix_hist, unemployment_claims, fed_funds_rate, yield_d
         }
     }
 
-    initial_vix_fig = {
+    figs['vix'] = { #initial_vix_fig = {
         'data': [{'x': vix_hist.index, 'y': vix_hist['Close'], 'type': 'line', 'name': 'VIX'}],
         'layout': {
             'title': 'VIX',
@@ -79,7 +81,7 @@ def init_figs(sp500_hist, vix_hist, unemployment_claims, fed_funds_rate, yield_d
         }
     }
 
-    initial_unemployment_fig = {
+    figs['ue'] = { #initial_unemployment_fig = {
         'data': [
             {'x': unemployment_claims.index, 'y': unemployment_claims['value'], 'type': 'line', 'name': 'UEC'},
             {'x': unemployment_claims.index, 'y': unemployment_claims['SMA'], 'type': 'line', 'name': 'SMA', 'line': {'width': 1.3}}
@@ -93,7 +95,7 @@ def init_figs(sp500_hist, vix_hist, unemployment_claims, fed_funds_rate, yield_d
         }
     }
 
-    initial_fed_funds_rate_fig = {
+    figs['fed_rates'] = {#initial_fed_funds_rate_fig = {
         'data': [{'x': fed_funds_rate.index, 'y': fed_funds_rate['value'], 'type': 'line', 'name': 'Fed Funds Rate'}],
         'layout': {'title': 'Federal Funds Rate',
                    'xaxis': {'range': [start_date, end_date]},
@@ -103,7 +105,7 @@ def init_figs(sp500_hist, vix_hist, unemployment_claims, fed_funds_rate, yield_d
         }
     }
 
-    initial_yield_fig = {
+    figs['yields'] = {# initial_yield_fig = {
         'data': [{'x': yield_data.index, 'y': yield_data['diff'], 'type': 'line', 'name': 'Yield Data 3 Mo / 10 Yr'}],
         'layout': {'title': '3 Mo / 10 Yr Yield Data Curve',
                    'xaxis': {'range': [start_date, end_date]},
@@ -112,7 +114,7 @@ def init_figs(sp500_hist, vix_hist, unemployment_claims, fed_funds_rate, yield_d
                    'showlegend': False
         }
     }
-    return initial_sp500_fig, initial_vix_fig, initial_unemployment_fig, initial_fed_funds_rate_fig, initial_yield_fig
+    return figs
 
 
 def gen_text(sp500_hist, vix_hist, unemployment_claims, fed_funds_rate, yield_data):
@@ -220,8 +222,6 @@ sp500_hist, vix_hist, unemployment_claims, fed_funds_rate, yield_data = get_data
 # Initialize figs and generate text
 initial_figs = init_figs(sp500_hist, vix_hist, unemployment_claims, fed_funds_rate,
                          yield_data, start_date, end_date, px_width, px_height)
-(initial_sp500_fig, initial_vix_fig, initial_unemployment_fig,
- initial_fed_funds_rate_fig, initial_yield_fig) = initial_figs
 
 text_content = gen_text(sp500_hist, vix_hist, unemployment_claims, fed_funds_rate,
                         yield_data)
@@ -232,17 +232,17 @@ app = dash.Dash(__name__)
 # HTML Layout
 app.layout = html.Div([
     html.Div([
-        dcc.Graph(id='sp500-graph', figure=initial_sp500_fig),
+        dcc.Graph(id='sp500-graph', figure=initial_figs['sp500']),
         dcc.Markdown(text_content, id='text-panel', style={'textAlign': 'left', 'paddingTop': '40px'},
                      dangerously_allow_html=True)
     ], style={'display': 'grid', 'grid-template-columns': '50% 50%', 'grid-template-rows': '50% 50%'}),
     html.Div([
-        dcc.Graph(id='vix-graph', figure=initial_vix_fig),
-        dcc.Graph(id='unemployment-graph', figure=initial_unemployment_fig)
+        dcc.Graph(id='vix-graph', figure=initial_figs['vix']),
+        dcc.Graph(id='unemployment-graph', figure=initial_figs['ue'])
     ], style={'display': 'grid', 'grid-template-columns': '50% 50%', 'grid-template-rows': '50% 50%'}),
     html.Div([
-        dcc.Graph(id='fed-funds-rate-graph', figure=initial_fed_funds_rate_fig),
-        dcc.Graph(id='yield-data-graph', figure=initial_yield_fig)
+        dcc.Graph(id='fed-funds-rate-graph', figure=initial_figs['fed_rates']),
+        dcc.Graph(id='yield-data-graph', figure=initial_figs['yields'])
     ], style={'display': 'grid', 'grid-template-columns': '50% 50%', 'grid-template-rows': '50% 50%'})
 ])
 
@@ -270,15 +270,15 @@ def update_graphs(sp500_relayoutData, sp500_fig, vix_fig, unemployment_fig, fed_
         range_end = pd.to_datetime(sp500_relayoutData['xaxis.range[1]'])
 
     if sp500_fig is None:
-        sp500_fig = initial_sp500_fig
+        sp500_fig = initial_figs['sp500']
     if vix_fig is None:
-        vix_fig = initial_vix_fig
+        vix_fig = initial_figs['vix']
     if unemployment_fig is None:
-        unemployment_fig = initial_unemployment_fig
+        unemployment_fig = initial_figs['ue']
     if fed_funds_rate_fig is None:
-        fed_funds_rate_fig = initial_fed_funds_rate_fig
+        fed_funds_rate_fig = initial_figs['fed_rates']
     if yield_fig is None:
-        yield_fig = initial_yield_fig
+        yield_fig = initial_figs['yields']
 
     # Update x-axis range
     sp500_fig['layout']['xaxis']['range'] = [range_start, range_end]
